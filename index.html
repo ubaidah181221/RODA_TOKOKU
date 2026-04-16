@@ -1,0 +1,781 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>RODA TOKOKU | Pro Fleet System v3</title>
+  
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.25/jspdf.plugin.autotable.min.js"></script>
+
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;600;800&display=swap');
+    body { font-family: 'Plus Jakarta Sans', sans-serif; background-color: #020617; color: #f1f5f9; }
+    .glass { background: rgba(15, 23, 42, 0.7); backdrop-filter: blur(12px); border: 1px solid rgba(255, 255, 255, 0.05); }
+    .sidebar-link.active { background: #3b82f6; color: white; box-shadow: 0 10px 15px -3px rgba(59, 130, 246, 0.4); }
+    .loader-overlay { display: none; position: fixed; inset: 0; background: rgba(2,6,23,0.9); z-index: 10000; align-items: center; justify-content: center; flex-direction: column; }
+    input, select, textarea { background: #0f172a !important; border: 1px solid #1e293b !important; color: white !important; }
+    .view-section { transition: all 0.3s ease; animation: fadeIn 0.4s ease-in-out; }
+    .card-gradient { background: linear-gradient(135deg, rgba(59, 130, 246, 0.1) 0%, rgba(15, 23, 42, 0) 100%); }
+    .king-border { border: 2px solid #fbbf24 !important; box-shadow: 0 0 20px rgba(251, 191, 36, 0.2); }
+    
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-thumb { background: #1e293b; border-radius: 10px; }
+    ::-webkit-scrollbar-track { background: #020617; }
+  </style>
+</head>
+<body class="min-h-screen flex flex-col md:flex-row">
+
+  <!-- Full Screen Initial Loader -->
+  <div id="globalLoader" class="loader-overlay">
+    <div class="relative">
+      <div class="w-20 h-20 border-4 border-blue-500/20 border-t-blue-500 rounded-full animate-spin"></div>
+      <i class="fas fa-truck-fast absolute inset-0 flex items-center justify-center text-blue-500 text-xl"></i>
+    </div>
+    <p id="loaderText" class="mt-4 text-[10px] font-black uppercase tracking-[0.4em] text-blue-500">Processing Data</p>
+  </div>
+
+  <!-- AUTH PAGE -->
+  <div id="loginPage" class="fixed inset-0 z-[9999] flex items-center justify-center bg-slate-950 p-6">
+    <div class="glass p-10 rounded-[2.5rem] w-full max-w-md shadow-2xl text-center relative overflow-hidden">
+      <div class="absolute -top-20 -right-20 w-40 h-40 bg-blue-600/20 rounded-full blur-3xl"></div>
+      <div class="w-20 h-20 bg-blue-600 rounded-3xl flex items-center justify-center mx-auto mb-8 shadow-xl -rotate-3 relative z-10">
+        <i class="fas fa-truck-fast text-4xl text-white"></i>
+      </div>
+      <h1 class="text-3xl font-black tracking-tighter mb-2 uppercase relative z-10">Roda <span class="text-blue-500">Tokoku</span></h1>
+      <p class="text-slate-500 text-[10px] font-bold uppercase tracking-widest mb-10 relative z-10">Premium Fleet Management</p>
+      <div class="space-y-4 relative z-10">
+        <input type="text" id="username" placeholder="Username" class="w-full p-4 rounded-2xl outline-none focus:ring-2 focus:ring-blue-500 transition-all">
+        <input type="password" id="password" placeholder="Password" class="w-full p-4 rounded-2xl outline-none focus:ring-2 focus:ring-blue-500 transition-all">
+        <button id="btnLogin" onclick="doLogin()" class="w-full bg-blue-600 hover:bg-blue-500 text-white font-black py-4 rounded-2xl shadow-lg transition-all active:scale-95 flex items-center justify-center gap-2">
+          <span>LOGIN SYSTEM</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MAIN APP -->
+  <div id="mainApp" class="hidden flex flex-col md:flex-row w-full min-h-screen">
+    <aside class="w-full md:w-72 glass border-r border-slate-800 p-8 flex flex-col z-50 overflow-y-auto">
+      <div class="mb-12">
+        <h2 class="text-xl font-black tracking-tighter uppercase">Roda <span class="text-blue-500">Tokoku</span></h2>
+        <div id="syncStatus" class="flex items-center gap-2 mt-1">
+          <div class="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse"></div>
+          <span class="text-[9px] font-black text-green-500 uppercase">Pro Cloud Active</span>
+        </div>
+      </div>
+      <nav class="space-y-2 flex-1">
+        <button onclick="navTo('dashboard')" data-nav="dashboard" class="sidebar-link active w-full flex items-center gap-4 p-4 rounded-2xl text-slate-400 font-bold transition-all hover:bg-white/5"><i class="fas fa-th-large w-5"></i> Dashboard</button>
+        <button onclick="navTo('transaksi')" data-nav="transaksi" class="sidebar-link w-full flex items-center gap-4 p-4 rounded-2xl text-slate-400 font-bold transition-all hover:bg-white/5"><i class="fas fa-file-invoice-dollar w-5"></i> Input Muatan</button>
+        <button onclick="navTo('pengeluaran')" data-nav="pengeluaran" class="sidebar-link w-full flex items-center gap-4 p-4 rounded-2xl text-slate-400 font-bold transition-all hover:bg-white/5"><i class="fas fa-receipt w-5"></i> Pengeluaran</button>
+        
+        <div class="pt-8 mt-8 border-t border-slate-800 space-y-2">
+          <p class="text-[10px] font-black text-slate-500 uppercase px-4 mb-4 tracking-[0.2em]">Analytics & Data</p>
+          <button onclick="navTo('performa_sopir')" data-nav="performa_sopir" class="sidebar-link w-full flex items-center gap-4 p-4 rounded-2xl text-amber-500 font-bold transition-all hover:bg-white/5"><i class="fas fa-user-astronaut w-5"></i> Performa Sopir</button>
+          <button onclick="navTo('performa_armada')" data-nav="performa_armada" class="sidebar-link w-full flex items-center gap-4 p-4 rounded-2xl text-emerald-500 font-bold transition-all hover:bg-white/5"><i class="fas fa-truck-loading w-5"></i> Performa Armada</button>
+          
+          <div id="adminMenu" class="hidden space-y-2 mt-2">
+            <button onclick="navTo('armada')" data-nav="armada" class="sidebar-link w-full flex items-center gap-4 p-4 rounded-2xl text-slate-400 font-bold transition-all hover:bg-white/5"><i class="fas fa-truck w-5"></i> Master Armada</button>
+            <button onclick="navTo('users')" data-nav="users" class="sidebar-link w-full flex items-center gap-4 p-4 rounded-2xl text-slate-400 font-bold transition-all hover:bg-white/5"><i class="fas fa-users-cog w-5"></i> Users</button>
+          </div>
+        </div>
+      </nav>
+      <div class="mt-8 flex items-center gap-4 bg-slate-900/50 p-4 rounded-2xl border border-slate-800">
+        <div class="w-10 h-10 rounded-full bg-blue-600 flex items-center justify-center font-black text-white shadow-lg" id="avatar">?</div>
+        <div class="truncate">
+          <p id="userName" class="text-xs font-black truncate">User</p>
+          <p id="userRole" class="text-[9px] text-blue-500 font-bold uppercase tracking-widest">Role</p>
+        </div>
+        <button onclick="location.reload()" class="ml-auto text-slate-500 hover:text-red-500 transition-colors"><i class="fas fa-power-off"></i></button>
+      </div>
+    </aside>
+
+    <main class="flex-1 p-6 md:p-12 overflow-y-auto w-full">
+      <div class="flex flex-col xl:flex-row justify-between items-start xl:items-end gap-6 mb-10 border-b border-slate-800/50 pb-8">
+        <div>
+          <h1 id="viewTitle" class="text-4xl font-black tracking-tighter uppercase drop-shadow-md">Dashboard</h1>
+          <p id="viewDesc" class="text-slate-500 text-xs mt-2 font-bold tracking-wide">Pantau performa armada Anda secara real-time.</p>
+        </div>
+        <div class="glass p-3 rounded-2xl flex flex-wrap items-center gap-3 border border-slate-800 shadow-xl">
+          <div class="flex items-center gap-3 px-3">
+            <div class="flex flex-col">
+              <label class="text-[8px] font-black text-slate-500 uppercase mb-1">Mulai</label>
+              <input type="date" id="filterStart" class="p-2 rounded-xl text-xs font-bold outline-none bg-slate-900">
+            </div>
+            <span class="text-slate-600 mt-4">-</span>
+            <div class="flex flex-col">
+              <label class="text-[8px] font-black text-slate-500 uppercase mb-1">Selesai</label>
+              <input type="date" id="filterEnd" class="p-2 rounded-xl text-xs font-bold outline-none bg-slate-900">
+            </div>
+          </div>
+          <div class="flex gap-2 pl-2 border-l border-slate-800">
+            <button id="btnFilter" onclick="applyFilter()" class="bg-blue-600 hover:bg-blue-500 text-white px-5 py-2.5 rounded-xl text-xs font-black transition-all shadow-lg shadow-blue-900/20">FILTER</button>
+            <button id="btnPDF" onclick="exportCurrentViewPDF()" class="bg-slate-800 hover:bg-slate-700 text-white px-5 py-2.5 rounded-xl text-xs font-black transition-all border border-slate-700"><i class="fas fa-file-pdf mr-2 text-red-400"></i>PDF</button>
+          </div>
+        </div>
+      </div>
+
+      <div id="content">
+        <!-- Dashboard Stats Cards -->
+        <div id="dashboard-stats" class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12">
+          <div class="glass p-8 rounded-[2rem] relative overflow-hidden group card-gradient shadow-xl">
+            <div class="absolute -right-6 -top-6 text-blue-500/10"><i class="fas fa-wallet text-9xl"></i></div>
+            <p class="text-blue-400 text-[10px] font-black uppercase tracking-widest mb-3 flex items-center gap-2"><i class="fas fa-arrow-trend-up"></i> Total Omzet</p>
+            <h3 class="text-4xl font-black tracking-tighter" id="statOmzet">Rp 0</h3>
+          </div>
+          <div class="glass p-8 rounded-[2rem] relative overflow-hidden group shadow-xl">
+             <div class="absolute -right-6 -top-6 text-red-500/5"><i class="fas fa-file-invoice text-9xl"></i></div>
+            <p class="text-red-400 text-[10px] font-black uppercase tracking-widest mb-3 flex items-center gap-2"><i class="fas fa-arrow-trend-down"></i> Total Pengeluaran</p>
+            <h3 class="text-4xl font-black text-white tracking-tighter" id="statExp">Rp 0</h3>
+          </div>
+          <div class="glass p-8 rounded-[2rem] relative overflow-hidden group shadow-xl border-t border-emerald-500/30">
+            <div class="absolute -right-6 -top-6 text-emerald-500/5"><i class="fas fa-sack-dollar text-9xl"></i></div>
+            <p class="text-emerald-400 text-[10px] font-black uppercase tracking-widest mb-3 flex items-center gap-2"><i class="fas fa-chart-pie"></i> Profit Bersih</p>
+            <h3 class="text-4xl font-black text-emerald-400 tracking-tighter" id="statProfit">Rp 0</h3>
+          </div>
+        </div>
+
+        <!-- Section Views -->
+        <div class="space-y-12">
+          
+          <!-- View Transaksi -->
+          <div id="view-transaksi" class="view-section">
+            <div class="flex flex-col md:flex-row justify-between items-center gap-4 mb-6 px-2">
+              <h4 class="font-black text-lg uppercase tracking-tight flex items-center gap-2"><i class="fas fa-box text-blue-500"></i> Data Muatan</h4>
+              <div class="flex items-center gap-3 w-full md:w-auto">
+                <div class="relative w-full md:w-64">
+                  <i class="fas fa-search absolute left-4 top-3.5 text-slate-500 text-xs"></i>
+                  <input type="text" id="searchNopolTrx" onkeyup="renderTables()" placeholder="Cari Nopol / Tujuan..." class="w-full pl-10 pr-4 py-3 rounded-xl text-xs font-bold outline-none bg-slate-900 border border-slate-800 text-white">
+                </div>
+                <button onclick="openModalTransaksi()" class="bg-blue-600 hover:bg-blue-500 text-white px-6 py-3 rounded-xl text-xs font-black shadow-lg whitespace-nowrap"><i class="fas fa-plus mr-2"></i>TAMBAH DATA</button>
+              </div>
+            </div>
+            <div class="glass rounded-[2rem] overflow-x-auto border border-slate-800 shadow-xl">
+              <table class="w-full text-left border-collapse min-w-[800px]">
+                <thead class="bg-slate-900/80 text-[10px] font-black uppercase text-slate-500 tracking-widest">
+                  <tr><th class="p-6">Tanggal</th><th class="p-6">Nopol</th><th class="p-6">Tujuan</th><th class="p-6">Sopir</th><th class="p-6 text-right">Ongkos</th><th class="p-6 text-center">Aksi</th></tr>
+                </thead>
+                <tbody id="tableTransaksi" class="divide-y divide-slate-800/50 text-sm"></tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- View Pengeluaran -->
+          <div id="view-pengeluaran" class="view-section hidden">
+            <div class="flex flex-col md:flex-row justify-between items-center gap-4 mb-6 px-2">
+              <h4 class="font-black text-lg uppercase tracking-tight flex items-center gap-2"><i class="fas fa-receipt text-red-500"></i> Data Pengeluaran</h4>
+              <button onclick="openModalPengeluaran()" class="bg-red-600 hover:bg-red-500 text-white px-6 py-3 rounded-xl text-xs font-black shadow-lg shadow-red-900/20 whitespace-nowrap"><i class="fas fa-plus mr-2"></i>TAMBAH BIAYA</button>
+            </div>
+            <div class="glass rounded-[2rem] overflow-x-auto border border-slate-800 shadow-xl">
+              <table class="w-full text-left border-collapse min-w-[800px]">
+                <thead class="bg-slate-900/80 text-[10px] font-black uppercase text-slate-500 tracking-widest">
+                  <tr><th class="p-6">Tanggal</th><th class="p-6">Kategori</th><th class="p-6">Nopol</th><th class="p-6">Keterangan</th><th class="p-6 text-center">Struk</th><th class="p-6 text-right">Biaya</th><th class="p-6 text-center">Aksi</th></tr>
+                </thead>
+                <tbody id="tablePengeluaran" class="divide-y divide-slate-800/50 text-sm"></tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- View Performa Sopir -->
+          <div id="view-performa_sopir" class="view-section hidden">
+            <div class="flex justify-between items-center mb-8 px-2">
+              <h4 class="font-black text-lg uppercase tracking-tight text-amber-400"><i class="fas fa-crown mr-2"></i> Analytics Sopir</h4>
+            </div>
+            <div id="sopirCards" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"></div>
+          </div>
+
+          <!-- View Performa Armada (NEW) -->
+          <div id="view-performa_armada" class="view-section hidden">
+            <div class="flex justify-between items-center mb-8 px-2">
+              <h4 class="font-black text-lg uppercase tracking-tight text-emerald-400"><i class="fas fa-truck-loading mr-2"></i> Analytics Armada</h4>
+            </div>
+            <div id="armadaCards" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"></div>
+          </div>
+
+          <!-- View Armada Master -->
+          <div id="view-armada" class="view-section hidden">
+            <div class="flex justify-between items-center mb-6 px-2">
+              <h4 class="font-black text-lg uppercase tracking-tight">Master Armada</h4>
+              <button onclick="openModalNopol()" class="bg-blue-600 hover:bg-blue-500 px-6 py-3 rounded-xl text-xs font-black shadow-lg">TAMBAH UNIT</button>
+            </div>
+            <div class="glass rounded-[2rem] overflow-x-auto border border-slate-800">
+              <table class="w-full text-left border-collapse min-w-[800px]">
+                <thead class="bg-slate-900/80 text-[10px] font-black uppercase text-slate-500 tracking-widest">
+                  <tr><th class="p-6">Nopol</th><th class="p-6">Jenis</th><th class="p-6 text-center">Pajak</th><th class="p-6 text-center">STNK</th><th class="p-6 text-center">KIR</th><th class="p-6 text-center">Aksi</th></tr>
+                </thead>
+                <tbody id="tableArmada" class="divide-y divide-slate-800/50 text-sm"></tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- View Users -->
+          <div id="view-users" class="view-section hidden">
+            <div class="flex justify-between items-center mb-6 px-2">
+              <h4 class="font-black text-lg uppercase tracking-tight">User Management</h4>
+              <button onclick="openModalUser()" class="bg-blue-600 hover:bg-blue-500 px-6 py-3 rounded-xl text-xs font-black shadow-lg">TAMBAH USER</button>
+            </div>
+            <div class="glass rounded-[2rem] overflow-hidden border border-slate-800">
+              <table class="w-full text-left border-collapse">
+                <thead class="bg-slate-900/80 text-[10px] font-black uppercase text-slate-500 tracking-widest">
+                  <tr><th class="p-6">Nama</th><th class="p-6">Username</th><th class="p-6">Role</th><th class="p-6 text-center">Aksi</th></tr>
+                </thead>
+                <tbody id="tableUsers" class="divide-y divide-slate-800/50 text-sm"></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <footer class="mt-20 py-8 border-t border-slate-800 flex flex-col md:flex-row justify-between items-center gap-4 text-slate-500">
+        <span class="text-[9px] font-black uppercase tracking-[0.3em]">Roda Tokoku Pro System v3.0</span>
+        <div class="text-[9px] font-bold uppercase tracking-widest">Created by <span class="text-white">Abu Ubaidah - Sholah</span></div>
+      </footer>
+    </main>
+  </div>
+
+  <!-- MODALS -->
+  <div id="modalNopol" class="fixed inset-0 bg-slate-950/80 z-[1000] hidden items-center justify-center p-4 backdrop-blur-sm transition-opacity">
+    <div class="bg-slate-900 p-8 md:p-10 rounded-[2rem] w-full max-w-xl border border-slate-800 shadow-2xl relative">
+      <button onclick="hideModal('modalNopol')" class="absolute top-6 right-6 text-slate-500 hover:text-white transition-colors"><i class="fas fa-times text-xl"></i></button>
+      <h3 class="text-2xl font-black mb-8 flex items-center gap-3"><i class="fas fa-truck text-blue-500"></i> <span id="titleModalNopol">DATA ARMADA</span></h3>
+      <form id="formNopol" class="grid grid-cols-2 gap-5">
+        <input type="hidden" name="id" id="idNopol">
+        <div class="col-span-2"><label class="text-[9px] font-black text-slate-500 uppercase mb-2 block">Nomor Polisi</label><input type="text" name="nopol" id="inpNopol" required class="w-full p-3.5 rounded-xl outline-none uppercase font-bold bg-slate-950 border border-slate-800"></div>
+        <div class="col-span-2"><label class="text-[9px] font-black text-slate-500 uppercase mb-2 block">Jenis Kendaraan</label><input type="text" name="jenis" id="inpJenis" required class="w-full p-3.5 rounded-xl outline-none bg-slate-950 border border-slate-800"></div>
+        <div><label class="text-[9px] font-black text-slate-500 uppercase mb-2 block">Masa Pajak</label><input type="date" name="tgl_pajak" id="inpPajak" required class="w-full p-3.5 rounded-xl outline-none bg-slate-950 border border-slate-800"></div>
+        <div><label class="text-[9px] font-black text-slate-500 uppercase mb-2 block">Masa STNK</label><input type="date" name="tgl_stnk" id="inpStnk" required class="w-full p-3.5 rounded-xl outline-none bg-slate-950 border border-slate-800"></div>
+        <div class="col-span-2"><label class="text-[9px] font-black text-slate-500 uppercase mb-2 block">Masa KIR</label><input type="date" name="tgl_kir" id="inpKir" required class="w-full p-3.5 rounded-xl outline-none bg-slate-950 border border-slate-800"></div>
+        <button type="submit" id="btnSubmitNopol" class="col-span-2 bg-blue-600 hover:bg-blue-500 text-white font-black py-4 rounded-xl mt-4 transition-all flex justify-center items-center gap-2">SIMPAN ARMADA</button>
+      </form>
+    </div>
+  </div>
+
+  <div id="modalTransaksi" class="fixed inset-0 bg-slate-950/80 z-[1000] hidden items-center justify-center p-4 backdrop-blur-sm">
+    <div class="bg-slate-900 p-8 md:p-10 rounded-[2rem] w-full max-w-xl border border-slate-800 shadow-2xl relative">
+      <button onclick="hideModal('modalTransaksi')" class="absolute top-6 right-6 text-slate-500 hover:text-white"><i class="fas fa-times text-xl"></i></button>
+      <h3 class="text-2xl font-black mb-8 text-blue-500 flex items-center gap-3"><i class="fas fa-box"></i> <span id="titleModalTrx">INPUT MUATAN</span></h3>
+      <form id="formTransaksi" class="space-y-5">
+        <input type="hidden" name="id" id="idTrx">
+        <div class="grid grid-cols-2 gap-5">
+          <div><label class="text-[9px] font-black text-slate-500 uppercase mb-2 block">Tanggal</label><input type="date" name="tanggal" id="inpTglTrx" required class="w-full p-3.5 rounded-xl outline-none bg-slate-950 border border-slate-800"></div>
+          <div><label class="text-[9px] font-black text-slate-500 uppercase mb-2 block">Sopir</label><select name="sopir" id="inpSopirTrx" class="w-full p-3.5 rounded-xl bg-slate-950 border border-slate-800"></select></div>
+        </div>
+        <div class="grid grid-cols-2 gap-5">
+          <div><label class="text-[9px] font-black text-slate-500 uppercase mb-2 block">Pilih Nopol</label><select name="nopol" id="inpNopolTrx" class="selectNopol w-full p-3.5 rounded-xl bg-slate-950 border border-slate-800"></select></div>
+          <div><label class="text-[9px] font-black text-slate-500 uppercase mb-2 block">Tujuan</label><input type="text" name="tujuan" id="inpTujuanTrx" required class="w-full p-3.5 rounded-xl bg-slate-950 border border-slate-800"></div>
+        </div>
+        <div><label class="text-[9px] font-black text-slate-500 uppercase mb-2 block">Ongkos Muatan (Rp)</label><input type="number" name="ongkos" id="inpOngkosTrx" required class="w-full p-3.5 rounded-xl font-black text-blue-400 bg-slate-950 border border-slate-800 text-xl"></div>
+        <button type="submit" id="btnSubmitTrx" class="w-full bg-blue-600 hover:bg-blue-500 text-white font-black py-4 rounded-xl mt-4 transition-all flex justify-center items-center gap-2">SIMPAN MUATAN</button>
+      </form>
+    </div>
+  </div>
+
+  <div id="modalPengeluaran" class="fixed inset-0 bg-slate-950/80 z-[1000] hidden items-center justify-center p-4 backdrop-blur-sm">
+    <div class="bg-slate-900 p-8 md:p-10 rounded-[2rem] w-full max-w-xl border border-slate-800 shadow-2xl relative">
+      <button onclick="hideModal('modalPengeluaran')" class="absolute top-6 right-6 text-slate-500 hover:text-white"><i class="fas fa-times text-xl"></i></button>
+      <h3 class="text-2xl font-black mb-8 text-red-500 flex items-center gap-3"><i class="fas fa-receipt"></i> <span id="titleModalExp">INPUT PENGELUARAN</span></h3>
+      <form id="formPengeluaran" class="space-y-5">
+        <input type="hidden" name="id" id="idExp">
+        <input type="hidden" name="struk_base64" id="inpBase64Struk">
+        <input type="hidden" name="struk_name" id="inpStrukName">
+        <div class="grid grid-cols-2 gap-5">
+          <div><label class="text-[9px] font-black text-slate-500 uppercase mb-2 block">Tanggal</label><input type="date" name="tanggal" id="inpTglExp" required class="w-full p-3.5 rounded-xl bg-slate-950 border border-slate-800"></div>
+          <div><label class="text-[9px] font-black text-slate-500 uppercase mb-2 block">Nopol</label><select name="nopol" id="inpNopolExp" class="selectNopol w-full p-3.5 rounded-xl bg-slate-950 border border-slate-800"></select></div>
+        </div>
+        <div class="grid grid-cols-2 gap-5">
+           <div><label class="text-[9px] font-black text-slate-500 uppercase mb-2 block">Kategori</label><select name="kategori" id="inpKatExp" class="w-full p-3.5 rounded-xl font-bold bg-slate-950 border border-slate-800"><option>Solar / BBM</option><option>Tol & Parkir</option><option>Servis Rutin</option><option>Sparepart</option><option>Makan Sopir</option><option>Gaji Sopir</option><option>Lain-lain</option></select></div>
+           <div><label class="text-[9px] font-black text-slate-500 uppercase mb-2 block">Keterangan</label><input type="text" name="keterangan" id="inpKetExp" placeholder="Opsional" class="w-full p-3.5 rounded-xl bg-slate-950 border border-slate-800"></div>
+        </div>
+        <div>
+          <label class="text-[9px] font-black text-slate-500 uppercase mb-2 block">Upload Struk (Opsional)</label>
+          <input type="file" id="inpFileStruk" accept="image/*" class="w-full p-2.5 rounded-xl bg-slate-950 border border-slate-800 text-xs text-slate-400 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-xs file:font-black file:bg-slate-800 file:text-white hover:file:bg-slate-700 transition-all cursor-pointer">
+        </div>
+        <div><label class="text-[9px] font-black text-slate-500 uppercase mb-2 block">Biaya (Rp)</label><input type="number" name="biaya" id="inpBiayaExp" required class="w-full p-3.5 rounded-xl font-black text-red-400 bg-slate-950 border border-slate-800 text-xl"></div>
+        <button type="submit" id="btnSubmitExp" class="w-full bg-red-600 hover:bg-blue-500 text-white font-black py-4 rounded-xl mt-4 transition-all flex justify-center items-center gap-2">SIMPAN PENGELUARAN</button>
+      </form>
+    </div>
+  </div>
+
+  <div id="modalUser" class="fixed inset-0 bg-slate-950/80 z-[1000] hidden items-center justify-center p-4 backdrop-blur-sm">
+    <div class="bg-slate-900 p-8 md:p-10 rounded-[2rem] w-full max-w-md border border-slate-800 shadow-2xl relative">
+      <button onclick="hideModal('modalUser')" class="absolute top-6 right-6 text-slate-500 hover:text-white"><i class="fas fa-times text-xl"></i></button>
+      <h3 class="text-2xl font-black mb-8 flex items-center gap-3"><i class="fas fa-user-plus text-blue-500"></i> KELOLA USER</h3>
+      <form id="formUser" class="space-y-4">
+        <input type="hidden" name="id" id="idUser">
+        <input type="text" name="nama" id="inpNamaUser" placeholder="Nama Lengkap" required class="w-full p-3.5 rounded-xl bg-slate-950 border border-slate-800">
+        <input type="text" name="username" id="inpUsernameUser" placeholder="Username" required class="w-full p-3.5 rounded-xl bg-slate-950 border border-slate-800">
+        <input type="password" name="password" id="inpPassUser" placeholder="Password" required class="w-full p-3.5 rounded-xl bg-slate-950 border border-slate-800">
+        <select name="role" id="inpRoleUser" class="w-full p-3.5 rounded-xl bg-slate-950 border border-slate-800 font-bold"><option>Admin</option><option>Sopir</option><option>Bos</option></select>
+        <button type="submit" id="btnSubmitUser" class="w-full bg-blue-600 hover:bg-blue-500 text-white font-black py-4 rounded-xl mt-4 transition-all flex justify-center items-center gap-2">SIMPAN USER</button>
+      </form>
+    </div>
+  </div>
+
+  <script>
+    let currentUser = null;
+    let globalData = { users:[], nopol_master:[], transaksi:[], pengeluaran:[] };
+    let activeFilter = { start: '', end: '' };
+    let currentView = 'dashboard';
+
+    // File to Base64 logic
+    document.getElementById('inpFileStruk').addEventListener('change', function(e) {
+      const file = e.target.files[0];
+      if(!file) { document.getElementById('inpBase64Struk').value = ""; return; }
+      if(file.size > 2 * 1024 * 1024) { // 2MB limit
+         Swal.fire('File Terlalu Besar', 'Maksimal ukuran gambar adalah 2MB.', 'warning');
+         this.value = ""; return;
+      }
+      const reader = new FileReader();
+      reader.onload = function(re) { 
+        document.getElementById('inpBase64Struk').value = re.target.result.split(',')[1]; 
+        document.getElementById('inpStrukName').value = file.name;
+      };
+      reader.readAsDataURL(file);
+    });
+
+    const backend = {
+      run: (funcName, ...args) => {
+        return new Promise((resolve, reject) => {
+          if (typeof google !== 'undefined' && google.script && google.script.run) {
+            google.script.run.withSuccessHandler(resolve).withFailureHandler(reject)[funcName](...args);
+          } else {
+            console.warn(`[Local Simulation] ${funcName}`);
+            setTimeout(() => {
+              if (funcName === 'loginUser') resolve({ success: true, user: { nama: 'Bos Admin', role: 'Bos', username: 'bos' } });
+              else if (funcName === 'getDashboardData') resolve({ 
+                success: true, 
+                data: { 
+                  users: [{ nama: 'Agus', username: 'agus', role: 'Sopir' }],
+                  nopol_master: [{ nopol: 'B 1234 XX', jenis: 'Tronton', tgl_pajak: '2023-01-01', tgl_stnk: '2026-05-01', tgl_kir: '2026-04-10' }],
+                  transaksi: [{ id: '1', tanggal: '2026-04-04', nopol: 'B 1234 XX', tujuan: 'Jakarta', sopir: 'Agus', ongkos: 5000000 }],
+                  pengeluaran: [{ id: '1', tanggal: '2026-04-04', kategori: 'Solar / BBM', nopol: 'B 1234 XX', biaya: 1000000, keterangan: '-', struk_url: '' }]
+                } 
+              });
+              else resolve({ success: true });
+            }, 800);
+          }
+        });
+      }
+    };
+
+    function btnLoading(btnId, isLoading, defaultText) {
+      const btn = document.getElementById(btnId);
+      if(isLoading) {
+        btn.disabled = true;
+        btn.innerHTML = `<i class="fas fa-circle-notch fa-spin"></i> Memproses...`;
+      } else {
+        btn.disabled = false;
+        btn.innerHTML = defaultText;
+      }
+    }
+
+    async function doLogin() {
+      btnLoading('btnLogin', true, '');
+      const u = document.getElementById('username').value;
+      const p = document.getElementById('password').value;
+      try {
+        const res = await backend.run('loginUser', u, p);
+        if(res.success) {
+          currentUser = res.user;
+          document.getElementById('loginPage').classList.add('hidden');
+          document.getElementById('mainApp').classList.remove('hidden');
+          document.getElementById('userName').innerText = currentUser.nama;
+          document.getElementById('userRole').innerText = currentUser.role;
+          document.getElementById('avatar').innerText = currentUser.nama[0].toUpperCase();
+          
+          if(['Bos', 'Admin'].includes(currentUser.role)) {
+            document.getElementById('adminMenu').classList.remove('hidden');
+          }
+          await fetchSyncData(true);
+        } else { Swal.fire('Gagal', res.message, 'error'); btnLoading('btnLogin', false, 'LOGIN SYSTEM');}
+      } catch (e) { btnLoading('btnLogin', false, 'LOGIN SYSTEM'); Swal.fire('Error', 'Gagal terkoneksi ke server', 'error'); }
+    }
+
+    async function fetchSyncData(showLoaderUI = false) {
+      if(showLoaderUI) { document.getElementById('globalLoader').style.display = 'flex'; }
+      try {
+        const res = await backend.run('getDashboardData');
+        if(showLoaderUI) { document.getElementById('globalLoader').style.display = 'none'; }
+        if(res.success) {
+          globalData = res.data;
+          renderTables();
+          renderPerformaSopir();
+          renderPerformaArmada();
+        }
+      } catch (e) { if(showLoaderUI) document.getElementById('globalLoader').style.display = 'none'; }
+    }
+
+    // TRAFFIC LIGHT WARNING LOGIC
+    function getTrafficLight(dateString, type) {
+       if (!dateString) return '-';
+       const d = new Date(dateString);
+       const today = new Date();
+       today.setHours(0,0,0,0);
+       const diffTime = d - today;
+       const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+       
+       const txtDate = `<div class="text-[10px] text-slate-400 mb-1">${dateString}</div>`;
+       if (diffDays <= 0) return `${txtDate}<span class="px-2 py-1 bg-red-500/20 text-red-400 rounded text-[9px] font-black uppercase tracking-wider border border-red-500/30 shadow-[0_0_10px_rgba(239,68,68,0.2)]"><i class="fas fa-exclamation-triangle"></i> Expired</span>`;
+       if (diffDays <= 30) return `${txtDate}<span class="px-2 py-1 bg-amber-500/20 text-amber-400 rounded text-[9px] font-black uppercase tracking-wider border border-amber-500/30"><i class="fas fa-exclamation-circle"></i> H-${diffDays}</span>`;
+       return `${txtDate}<span class="px-2 py-1 bg-emerald-500/10 text-emerald-500 rounded text-[9px] font-black uppercase tracking-wider"><i class="fas fa-check-circle"></i> Aman</span>`;
+    }
+
+    function renderTables() {
+      const searchNopol = (document.getElementById('searchNopolTrx')?.value || '').toLowerCase();
+      
+      const filterData = (arr) => {
+        let res = arr;
+        if(activeFilter.start && activeFilter.end) {
+           res = res.filter(x => x.tanggal >= activeFilter.start && x.tanggal <= activeFilter.end);
+        }
+        return res;
+      };
+
+      let trx = filterData(globalData.transaksi || []);
+      let exp = filterData(globalData.pengeluaran || []);
+
+      // Stats Update
+      document.getElementById('statOmzet').innerText = "Rp " + trx.reduce((a,b) => a + Number(b.ongkos||0), 0).toLocaleString();
+      document.getElementById('statExp').innerText = "Rp " + exp.reduce((a,b) => a + Number(b.biaya||0), 0).toLocaleString();
+      document.getElementById('statProfit').innerText = "Rp " + (trx.reduce((a,b) => a + Number(b.ongkos||0), 0) - exp.reduce((a,b) => a + Number(b.biaya||0), 0)).toLocaleString();
+
+      // Additional Search Filter for Transaksi View
+      if(searchNopol) {
+        trx = trx.filter(t => (t.nopol||'').toLowerCase().includes(searchNopol) || (t.tujuan||'').toLowerCase().includes(searchNopol));
+      }
+
+      document.getElementById('tableTransaksi').innerHTML = trx.map(t => `
+        <tr class="hover:bg-white/5 transition-colors group">
+          <td class="p-6 font-bold text-slate-300">${t.tanggal}</td>
+          <td class="p-6 font-black text-blue-400">${t.nopol}</td>
+          <td class="p-6 font-bold text-slate-200">${t.tujuan}</td>
+          <td class="p-6 text-xs text-slate-400">${t.sopir}</td>
+          <td class="p-6 text-right font-black text-emerald-400">Rp ${Number(t.ongkos||0).toLocaleString()}</td>
+          <td class="p-6 text-center whitespace-nowrap">
+            <button onclick='editRecord("transaksi", ${JSON.stringify(t).replace(/'/g, "&#39;")})' class="text-blue-500/50 hover:text-blue-400 mr-3 transition-colors"><i class="fas fa-edit"></i></button>
+            <button onclick="deleteData('transaksi','id','${t.id}')" class="text-red-500/50 hover:text-red-400 transition-colors"><i class="fas fa-trash-alt"></i></button>
+          </td>
+        </tr>`).join('') || `<tr><td colspan="6" class="text-center p-8 text-slate-500 font-bold">Tidak ada data.</td></tr>`;
+
+      document.getElementById('tablePengeluaran').innerHTML = exp.map(e => `
+        <tr class="hover:bg-white/5 transition-colors group">
+          <td class="p-6 text-xs font-bold text-slate-300">${e.tanggal}</td>
+          <td class="p-6 uppercase text-[10px] font-black text-blue-400 tracking-wider">${e.kategori}</td>
+          <td class="p-6 font-black uppercase text-xs">${e.nopol}</td>
+          <td class="p-6 text-slate-400 italic text-xs truncate max-w-[150px]">${e.keterangan || '-'}</td>
+          <td class="p-6 text-center">${e.struk_url ? `<a href="${e.struk_url}" target="_blank" class="text-blue-500 hover:text-white"><i class="fas fa-image"></i></a>` : '-'}</td>
+          <td class="p-6 text-right font-black text-red-400">Rp ${Number(e.biaya||0).toLocaleString()}</td>
+          <td class="p-6 text-center whitespace-nowrap">
+            <button onclick='editRecord("pengeluaran", ${JSON.stringify(e).replace(/'/g, "&#39;")})' class="text-blue-500/50 hover:text-blue-400 mr-3 transition-colors"><i class="fas fa-edit"></i></button>
+            <button onclick="deleteData('pengeluaran','id','${e.id}')" class="text-red-500/50 hover:text-red-400 transition-colors"><i class="fas fa-trash-alt"></i></button>
+          </td>
+        </tr>`).join('') || `<tr><td colspan="7" class="text-center p-8 text-slate-500 font-bold">Tidak ada pengeluaran.</td></tr>`;
+
+      document.getElementById('tableArmada').innerHTML = (globalData.nopol_master || []).map(a => `
+        <tr class="hover:bg-white/5 transition-colors group">
+          <td class="p-6 font-black text-blue-400 text-lg">${a.nopol}</td>
+          <td class="p-6 font-black text-xs uppercase tracking-widest text-slate-300">${a.jenis}</td>
+          <td class="p-6 text-center">${getTrafficLight(a.tgl_pajak, 'Pajak')}</td>
+          <td class="p-6 text-center">${getTrafficLight(a.tgl_stnk, 'STNK')}</td>
+          <td class="p-6 text-center">${getTrafficLight(a.tgl_kir, 'KIR')}</td>
+          <td class="p-6 text-center whitespace-nowrap">
+            <button onclick='editRecord("nopol", ${JSON.stringify(a).replace(/'/g, "&#39;")})' class="text-blue-500/50 hover:text-blue-400 mr-3"><i class="fas fa-edit"></i></button>
+            <button onclick="deleteData('nopol_master','nopol','${a.nopol}')" class="text-red-500/50 hover:text-red-400"><i class="fas fa-trash-alt"></i></button>
+          </td>
+        </tr>`).join('');
+
+      document.getElementById('tableUsers').innerHTML = (globalData.users || []).map(u => `
+        <tr class="hover:bg-white/5 transition-colors"><td class="p-6 font-black">${u.nama}</td><td class="p-6 text-slate-400 text-xs">${u.username}</td><td class="p-6 uppercase text-[10px] font-black text-blue-400 tracking-widest">${u.role}</td><td class="p-6 text-center"><button onclick="deleteData('users','username','${u.username}')" class="text-red-500/50 hover:text-red-500"><i class="fas fa-trash-alt"></i></button></td></tr>`).join('');
+
+      // Populate Selects
+      const nopolOpts = (globalData.nopol_master || []).map(n => `<option value="${n.nopol}">${n.nopol}</option>`).join('');
+      document.querySelectorAll('.selectNopol').forEach(s => s.innerHTML = nopolOpts);
+      
+      const sopirOpts = (globalData.users || []).filter(u => u.role === 'Sopir').map(u => `<option value="${u.nama}">${u.nama}</option>`).join('');
+      document.getElementById('inpSopirTrx').innerHTML = sopirOpts;
+    }
+
+    function renderPerformaSopir() {
+      const filterData = (arr) => {
+        if(!activeFilter.start || !activeFilter.end) return arr;
+        return arr.filter(x => x.tanggal >= activeFilter.start && x.tanggal <= activeFilter.end);
+      };
+
+      const trxFiltered = filterData(globalData.transaksi || []);
+      const expFiltered = filterData(globalData.pengeluaran || []);
+      const sopirs = (globalData.users || []).filter(u => u.role === 'Sopir');
+
+      const performa = sopirs.map(s => {
+        const myTrx = trxFiltered.filter(t => t.sopir === s.nama);
+        const totalOmzet = myTrx.reduce((a,b) => a + Number(b.ongkos||0), 0);
+        const myNopols = [...new Set(myTrx.map(t => t.nopol))];
+        const totalExp = expFiltered.filter(e => myNopols.includes(e.nopol)).reduce((a,b) => a + Number(b.biaya||0), 0);
+        return { nama: s.nama, trips: myTrx.length, omzet: totalOmzet, exp: totalExp, profit: totalOmzet - totalExp };
+      });
+
+      performa.sort((a,b) => b.profit - a.profit);
+      const topProfit = performa.length > 0 ? performa[0].profit : 0;
+
+      document.getElementById('sopirCards').innerHTML = performa.map(p => `
+        <div class="glass p-8 rounded-[2rem] relative overflow-hidden transition-all hover:-translate-y-1 shadow-lg ${p.profit === topProfit && p.profit > 0 ? 'king-border' : ''}">
+          ${p.profit === topProfit && p.profit > 0 ? '<div class="absolute top-6 right-6 text-amber-400 drop-shadow-[0_0_8px_rgba(251,191,36,0.5)] animate-bounce"><i class="fas fa-crown text-3xl"></i></div>' : ''}
+          <div class="flex items-center gap-4 mb-6">
+            <div class="w-14 h-14 rounded-2xl bg-slate-800 flex items-center justify-center font-black text-2xl text-blue-500 shadow-inner">${p.nama[0]}</div>
+            <div>
+              <h5 class="font-black text-xl truncate">${p.nama}</h5>
+              <p class="text-[9px] font-black text-slate-400 uppercase tracking-widest mt-1">${p.trips} Trips Completed</p>
+            </div>
+          </div>
+          <div class="space-y-4">
+            <div class="flex justify-between items-center"><span class="text-[10px] font-bold text-slate-500 uppercase">Omzet</span><span class="font-black text-blue-400">Rp ${p.omzet.toLocaleString()}</span></div>
+            <div class="flex justify-between items-center"><span class="text-[10px] font-bold text-slate-500 uppercase">Pengeluaran</span><span class="font-black text-red-400">Rp ${p.exp.toLocaleString()}</span></div>
+            <div class="pt-4 border-t border-slate-800/50 flex justify-between items-center">
+              <span class="text-[10px] font-black text-slate-400 uppercase">Margin Profit</span>
+              <span class="text-2xl font-black tracking-tighter ${p.profit >= 0 ? 'text-emerald-400' : 'text-red-500'}">Rp ${p.profit.toLocaleString()}</span>
+            </div>
+          </div>
+        </div>
+      `).join('');
+    }
+
+    function renderPerformaArmada() {
+      const filterData = (arr) => {
+        if(!activeFilter.start || !activeFilter.end) return arr;
+        return arr.filter(x => x.tanggal >= activeFilter.start && x.tanggal <= activeFilter.end);
+      };
+
+      const trxFiltered = filterData(globalData.transaksi || []);
+      const expFiltered = filterData(globalData.pengeluaran || []);
+      const armadas = globalData.nopol_master || [];
+
+      const performa = armadas.map(a => {
+        const totalOmzet = trxFiltered.filter(t => t.nopol === a.nopol).reduce((sum, b) => sum + Number(b.ongkos||0), 0);
+        const totalExp = expFiltered.filter(e => e.nopol === a.nopol).reduce((sum, b) => sum + Number(b.biaya||0), 0);
+        return { nopol: a.nopol, jenis: a.jenis, omzet: totalOmzet, exp: totalExp, profit: totalOmzet - totalExp };
+      });
+
+      performa.sort((a,b) => b.profit - a.profit);
+
+      document.getElementById('armadaCards').innerHTML = performa.map(p => `
+        <div class="glass p-8 rounded-[2rem] relative overflow-hidden transition-all hover:-translate-y-1 shadow-lg">
+          <div class="flex items-center gap-4 mb-6">
+            <div class="w-14 h-14 rounded-2xl bg-blue-900/30 border border-blue-500/20 flex items-center justify-center font-black text-2xl text-blue-400 shadow-inner"><i class="fas fa-truck"></i></div>
+            <div>
+              <h5 class="font-black text-xl truncate text-white">${p.nopol}</h5>
+              <p class="text-[9px] font-black text-slate-400 uppercase tracking-widest mt-1">${p.jenis}</p>
+            </div>
+          </div>
+          <div class="space-y-4">
+            <div class="flex justify-between items-center"><span class="text-[10px] font-bold text-slate-500 uppercase">Pendapatan</span><span class="font-black text-blue-400">Rp ${p.omzet.toLocaleString()}</span></div>
+            <div class="flex justify-between items-center"><span class="text-[10px] font-bold text-slate-500 uppercase">Biaya Op.</span><span class="font-black text-red-400">Rp ${p.exp.toLocaleString()}</span></div>
+            <div class="pt-4 border-t border-slate-800/50 flex justify-between items-center">
+              <span class="text-[10px] font-black text-slate-400 uppercase">Profit Unit</span>
+              <span class="text-2xl font-black tracking-tighter ${p.profit >= 0 ? 'text-emerald-400' : 'text-red-500'}">Rp ${p.profit.toLocaleString()}</span>
+            </div>
+          </div>
+        </div>
+      `).join('');
+    }
+
+    function navTo(viewId) {
+      currentView = viewId;
+      document.querySelectorAll('.view-section').forEach(v => v.classList.add('hidden'));
+      document.querySelectorAll('.sidebar-link').forEach(l => l.classList.remove('active', 'bg-white/10'));
+      const stats = document.getElementById('dashboard-stats');
+      if(stats) stats.classList.add('hidden');
+
+      if(viewId === 'dashboard') {
+        if(stats) stats.classList.remove('hidden');
+        document.getElementById('view-transaksi').classList.remove('hidden');
+        document.getElementById('view-pengeluaran').classList.remove('hidden');
+        document.getElementById('viewTitle').innerText = "DASHBOARD";
+        document.getElementById('viewDesc').innerText = "Pantau performa armada Anda secara real-time.";
+      } else {
+        const targetView = document.getElementById('view-' + viewId);
+        if(targetView) targetView.classList.remove('hidden');
+        document.getElementById('viewTitle').innerText = viewId.replace('_', ' ').toUpperCase();
+        document.getElementById('viewDesc').innerText = `Kelola data ${viewId.replace('_', ' ')} sistem Anda.`;
+      }
+
+      const activeLink = document.querySelector(`[data-nav="${viewId}"]`);
+      if(activeLink) activeLink.classList.add('active');
+    }
+
+    // MODAL OPENERS (ADD & EDIT)
+    function openModalTransaksi() { document.getElementById('formTransaksi').reset(); document.getElementById('idTrx').value=''; document.getElementById('titleModalTrx').innerText = "INPUT MUATAN"; showModal('modalTransaksi'); }
+    function openModalPengeluaran() { document.getElementById('formPengeluaran').reset(); document.getElementById('idExp').value=''; document.getElementById('inpBase64Struk').value=''; document.getElementById('titleModalExp').innerText = "INPUT PENGELUARAN"; showModal('modalPengeluaran'); }
+    function openModalNopol() { document.getElementById('formNopol').reset(); document.getElementById('idNopol').value=''; document.getElementById('inpNopol').readOnly = false; document.getElementById('titleModalNopol').innerText = "DATA ARMADA BARU"; showModal('modalNopol'); }
+    function openModalUser() { document.getElementById('formUser').reset(); showModal('modalUser'); }
+
+    function editRecord(type, data) {
+      if(type === 'transaksi') {
+        document.getElementById('idTrx').value = data.id;
+        document.getElementById('inpTglTrx').value = data.tanggal;
+        document.getElementById('inpSopirTrx').value = data.sopir;
+        document.getElementById('inpNopolTrx').value = data.nopol;
+        document.getElementById('inpTujuanTrx').value = data.tujuan;
+        document.getElementById('inpOngkosTrx').value = data.ongkos;
+        document.getElementById('titleModalTrx').innerText = "EDIT MUATAN";
+        showModal('modalTransaksi');
+      } else if (type === 'pengeluaran') {
+        document.getElementById('idExp').value = data.id;
+        document.getElementById('inpTglExp').value = data.tanggal;
+        document.getElementById('inpNopolExp').value = data.nopol;
+        document.getElementById('inpKatExp').value = data.kategori;
+        document.getElementById('inpKetExp').value = data.keterangan;
+        document.getElementById('inpBiayaExp').value = data.biaya;
+        document.getElementById('inpBase64Struk').value = '';
+        document.getElementById('titleModalExp').innerText = "EDIT PENGELUARAN";
+        showModal('modalPengeluaran');
+      } else if (type === 'nopol') {
+        document.getElementById('idNopol').value = data.nopol;
+        document.getElementById('inpNopol').value = data.nopol;
+        document.getElementById('inpNopol').readOnly = true; // PK cant be changed
+        document.getElementById('inpJenis').value = data.jenis;
+        document.getElementById('inpPajak').value = data.tgl_pajak;
+        document.getElementById('inpStnk').value = data.tgl_stnk;
+        document.getElementById('inpKir').value = data.tgl_kir;
+        document.getElementById('titleModalNopol').innerText = "EDIT ARMADA";
+        showModal('modalNopol');
+      }
+    }
+
+    function showModal(id) { document.getElementById(id).classList.replace('hidden', 'flex'); }
+    function hideModal(id) { document.getElementById(id).classList.replace('flex', 'hidden'); }
+
+    async function deleteData(table, key, val) {
+      const res = await Swal.fire({ title: 'Hapus Data?', text: "Data akan hilang permanen!", icon: 'warning', showCancelButton: true, confirmButtonColor: '#ef4444', confirmButtonText: 'Ya, Hapus!' });
+      if(res.isConfirmed) {
+        Swal.fire({ title: 'Menghapus...', allowOutsideClick: false, didOpen: () => { Swal.showLoading() } });
+        try {
+          await backend.run('deleteData', table, key, val);
+          await fetchSyncData();
+          Swal.fire({ icon: 'success', title: 'Data Terhapus', toast: true, position: 'top-end', timer: 1500, showConfirmButton: false });
+        } catch(e) { Swal.fire('Error', 'Gagal menghapus data', 'error'); }
+      }
+    }
+
+    function applyFilter() {
+      activeFilter.start = document.getElementById('filterStart').value;
+      activeFilter.end = document.getElementById('filterEnd').value;
+      renderTables();
+      renderPerformaSopir();
+      renderPerformaArmada();
+      
+      const btn = document.getElementById('btnFilter');
+      const origin = btn.innerHTML;
+      btn.innerHTML = `<i class="fas fa-check"></i>`;
+      btn.classList.replace('bg-blue-600', 'bg-green-500');
+      setTimeout(() => { btn.innerHTML = origin; btn.classList.replace('bg-green-500', 'bg-blue-600'); }, 1000);
+    }
+
+    // Export PDF Logic (Smart Table Reader)
+    function exportCurrentViewPDF() {
+      const { jsPDF } = window.jspdf;
+      const doc = new jsPDF('l', 'pt', 'a4'); // Landscape for tables
+      doc.setFontSize(20);
+      const title = `RODA TOKOKU - LAPORAN ${currentView.replace('_', ' ').toUpperCase()}`;
+      doc.text(title, 40, 50);
+      doc.setFontSize(10);
+      doc.text(`Periode: ${activeFilter.start || 'Semua'} s/d ${activeFilter.end || 'Semua'}`, 40, 70);
+      doc.text(`Dicetak pada: ${new Date().toLocaleString('id-ID')}`, 40, 85);
+      
+      let tableId = '';
+      if(currentView === 'dashboard' || currentView === 'transaksi') tableId = 'tableTransaksi';
+      else if (currentView === 'pengeluaran') tableId = 'tablePengeluaran';
+      else if (currentView === 'performa_sopir') { downloadRaport('sopirCards', 'Nama Sopir', 'Raport_Sopir'); return; }
+      else if (currentView === 'performa_armada') { downloadRaport('armadaCards', 'Nopol Armada', 'Raport_Armada'); return; }
+      else if (currentView === 'armada') tableId = 'tableArmada';
+
+      if(tableId) {
+        doc.autoTable({
+          html: document.getElementById(tableId).parentElement.querySelector('table'),
+          startY: 100, theme: 'grid', headStyles: { fillColor: [15, 23, 42] },
+          columns: Array.from(document.getElementById(tableId).parentElement.querySelectorAll('th')).map((th, i) => {
+            if(th.innerText.toLowerCase() === 'aksi') return { title: th.innerText, dataKey: i, hidden: true };
+            return { title: th.innerText, dataKey: i };
+          })
+        });
+        doc.save(`${currentView}_${Date.now()}.pdf`);
+      }
+    }
+
+    function downloadRaport(containerId, headName, fileName) {
+      const { jsPDF } = window.jspdf;
+      const doc = new jsPDF('p', 'pt', 'a4');
+      doc.setFontSize(22);
+      doc.text(`RODA TOKOKU - ${fileName.replace('_',' ').toUpperCase()}`, 40, 50);
+      doc.setFontSize(10);
+      doc.text(`Periode: ${activeFilter.start || 'Semua'} s/d ${activeFilter.end || 'Semua'}`, 40, 70);
+      
+      const rows = [];
+      const cards = document.getElementById(containerId).children;
+      for(let card of cards) {
+        const nama = card.querySelector('h5').innerText;
+        const omzet = card.querySelectorAll('.text-blue-400')[0].innerText;
+        const exp = card.querySelector('.text-red-400').innerText;
+        const profit = card.querySelectorAll('.text-2xl')[0] ? card.querySelectorAll('.text-2xl')[0].innerText : card.querySelectorAll('.text-xl')[0].innerText;
+        rows.push([nama, omzet, exp, profit]);
+      }
+
+      doc.autoTable({
+        startY: 100, head: [[headName, 'Total Omzet', 'Total Pengeluaran', 'Margin Profit']], body: rows,
+        theme: 'grid', headStyles: { fillColor: [59, 130, 246] }
+      });
+      doc.save(`${fileName}_${Date.now()}.pdf`);
+    }
+
+    // FORM HANDLERS
+    document.getElementById('formNopol').onsubmit = async function(e) {
+      e.preventDefault();
+      btnLoading('btnSubmitNopol', true, 'Menyimpan...');
+      try {
+        await backend.run('saveNopol', Object.fromEntries(new FormData(this)));
+        await fetchSyncData();
+        hideModal('modalNopol');
+        Swal.fire({ icon: 'success', title: 'Tersimpan', toast: true, position: 'top-end', timer: 1500, showConfirmButton: false });
+      } catch(err){ Swal.fire('Error', 'Gagal Simpan', 'error'); }
+      finally { btnLoading('btnSubmitNopol', false, 'SIMPAN ARMADA'); }
+    };
+
+    document.getElementById('formTransaksi').onsubmit = async function(e) {
+      e.preventDefault();
+      btnLoading('btnSubmitTrx', true, 'Menyimpan...');
+      try {
+        await backend.run('saveTransaksi', Object.fromEntries(new FormData(this)));
+        await fetchSyncData();
+        hideModal('modalTransaksi');
+        Swal.fire({ icon: 'success', title: 'Muatan Disimpan', toast: true, position: 'top-end', timer: 1500, showConfirmButton: false });
+      } catch(err){ Swal.fire('Error', 'Gagal Simpan', 'error'); }
+      finally { btnLoading('btnSubmitTrx', false, 'SIMPAN MUATAN'); }
+    };
+
+    document.getElementById('formPengeluaran').onsubmit = async function(e) {
+      e.preventDefault();
+      btnLoading('btnSubmitExp', true, 'Mengunggah & Menyimpan...');
+      try {
+        await backend.run('savePengeluaran', Object.fromEntries(new FormData(this)), currentUser.nama);
+        await fetchSyncData();
+        hideModal('modalPengeluaran');
+        Swal.fire({ icon: 'success', title: 'Biaya Dicatat', toast: true, position: 'top-end', timer: 1500, showConfirmButton: false });
+      } catch(err){ Swal.fire('Error', 'Gagal Simpan', 'error'); }
+      finally { btnLoading('btnSubmitExp', false, 'SIMPAN PENGELUARAN'); }
+    };
+
+    document.getElementById('formUser').onsubmit = async function(e) {
+      e.preventDefault();
+      btnLoading('btnSubmitUser', true, 'Menyimpan...');
+      try {
+        await backend.run('saveUser', Object.fromEntries(new FormData(this)));
+        await fetchSyncData();
+        hideModal('modalUser');
+      } catch(err){}
+      finally { btnLoading('btnSubmitUser', false, 'SIMPAN USER'); }
+    };
+  </script>
+</body>
+</html>
